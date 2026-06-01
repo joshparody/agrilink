@@ -12,7 +12,7 @@ const connectDB = require('./config/db');
 // Load environment variables BEFORE any other logic
 dotenv.config();
 
-// Debug check for the connection string (Using MONGODB_URI to match your .env)
+// Debug check for the connection string
 console.log('DEBUG: URI is:', process.env.MONGODB_URI ? 'Defined ✅' : 'Undefined ❌');
 
 // ── STEP 2: DATABASE CONNECTION ──────────────────────────────────────────────
@@ -33,7 +33,6 @@ if (process.env.NODE_ENV === 'development') {
 }
 
 // ── STEP 4: RATE LIMITING ────────────────────────────────────────────────────
-// Global rate limiter for general API traffic
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 200,
@@ -46,10 +45,9 @@ const globalLimiter = rateLimit({
 });
 app.use(globalLimiter);
 
-// Stricter rate limiter specifically for auth endpoints (brute-force prevention)
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 20, // max 20 requests per window for login/register
+  windowMs: 15 * 60 * 1000,
+  max: 20, 
   message: {
     status: 'error',
     message: 'Too many authentication attempts. Please try again in 15 minutes.',
@@ -58,7 +56,6 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// Store authLimiter in app configuration so authRoutes can fetch it via req.app.get()
 app.set('authLimiter', authLimiter);
 
 // ── STEP 5: CORS & BODY PARSING ──────────────────────────────────────────────
@@ -69,7 +66,6 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
-// Body parsers (Limit to 10mb for image uploads)
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
@@ -82,9 +78,13 @@ app.use((req, res, next) => {
 });
 
 // ── STEP 7: ROUTES ───────────────────────────────────────────────────────────
-// Routes
+// Base Auth Route
 app.use('/api/v1/auth', require('./routes/authRoutes'));
-// app.use('/api/v1/users',     require('./routes/userRoutes'));
+
+// 🚨 INTEGRATED CORE AGRI-LINK PORTAL ROUTES
+app.use('/api/v1/produce', require('./routes/produce.routes.js'));
+app.use('/api/v1/orders', require('./routes/order.routes.js'));
+app.use('/api/v1/supplies', require('./routes/supply.routes.js'));
 
 // Health Check Endpoint
 app.get('/api/v1/health', (req, res) => {
@@ -100,7 +100,7 @@ app.get('/api/v1/health', (req, res) => {
 });
 
 // ── STEP 8: ERROR HANDLING ───────────────────────────────────────────────────
-// 404 Handler
+// 404 Handler (Triggers if incoming URL matches none of the step 7 routes)
 app.use((req, res) => {
   res.status(404).json({
     status: 'fail',
@@ -122,7 +122,7 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, () => {
   console.log('══════════════════════════════════════════════');
-  console.log('  🌱 AgriLink API Server Started');
+  console.log(' 🌱 AgriLink API Server Started');
   console.log('══════════════════════════════════════════════');
   console.log(`  Environment : ${process.env.NODE_ENV}`);
   console.log(`  Port        : ${PORT}`);
